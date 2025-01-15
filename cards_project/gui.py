@@ -1,31 +1,39 @@
 # gui.py
 
-# English comment: GUI building
 import tkinter as tk
 from tkinter import ttk
+# For drag & drop
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
-# Importiamo le funzioni di event_handlers e i riferimenti globali
 import event_handlers
 
 def build_gui():
-    root = tk.Tk()
+    root = TkinterDnD.Tk()
     root.title("Selezione Carte e Creazione PDF")
 
-    # Frame for file selection
+    # Frame top
     frame_top = tk.Frame(root)
     frame_top.pack(padx=10, pady=10, fill=tk.X)
 
     select_button = tk.Button(frame_top, text="Seleziona Carte", command=event_handlers.on_select_cards)
     select_button.pack(side=tk.LEFT, padx=5)
 
-    files_listbox = tk.Listbox(frame_top, width=60, height=8)
+    # Listbox in EXTENDED mode for multi-selection
+    files_listbox = tk.Listbox(frame_top, width=60, height=8, selectmode=tk.EXTENDED)
+    files_listbox.configure(exportselection=False)
     files_listbox.pack(side=tk.LEFT, padx=5)
-    files_listbox.bind("<<ListboxSelect>>", event_handlers.on_listbox_select)
+
+    # Enable drop for the listbox
+    files_listbox.drop_target_register(DND_FILES)
+    files_listbox.dnd_bind('<<Drop>>', event_handlers.on_drop_files)
 
     remove_button = tk.Button(frame_top, text="Rimuovi Selezione", command=event_handlers.on_remove_file)
     remove_button.pack(side=tk.LEFT, padx=5)
 
-    # Frame for copies
+    # Bind to display the copies for the first selected item
+    files_listbox.bind("<<ListboxSelect>>", event_handlers.on_listbox_select)
+
+    # Frame copies
     frame_copies = tk.Frame(root)
     frame_copies.pack(padx=10, pady=5, fill=tk.X)
 
@@ -35,10 +43,37 @@ def build_gui():
     copies_entry = tk.Entry(frame_copies, width=5)
     copies_entry.pack(side=tk.LEFT, padx=5)
 
+    # --- PREVENTIRE LA SELEZIONE DI TESTO SENZA BLOCCARE L'INSERIMENTO ---
+    def prevent_text_highlight_on_click(event):
+        """
+        Rimuove la selezione di testo (se presente) ma NON interrompe l'evento,
+        in modo che l'Entry rimanga editabile.
+        """
+        event.widget.selection_clear()
+        event.widget.icursor("end")
+        # Non facciamo "return 'break'" qui!
+
+    def prevent_drag_or_double(event):
+        """
+        Rimuove la selezione quando si prova a trascinare col mouse o a fare doppio clic,
+        e interrompe l'evento per evitare di evidenziare il testo.
+        """
+        event.widget.selection_clear()
+        return "break"
+
+    # Quando l'Entry riceve il focus, togliamo la selezione
+    copies_entry.bind("<FocusIn>", prevent_text_highlight_on_click)
+    # Quando si clicca (Button-1), togliamo la selezione ma NON ritorniamo "break"
+    copies_entry.bind("<Button-1>", prevent_text_highlight_on_click)
+    # Se l'utente trascina (B1-Motion) o fa doppio click (Double-1), blocchiamo la selezione
+    copies_entry.bind("<B1-Motion>", prevent_drag_or_double)
+    copies_entry.bind("<Double-1>", prevent_drag_or_double)
+    # ----------------------------------------------------------------------
+
     set_copies_button = tk.Button(frame_copies, text="Imposta Copie", command=event_handlers.on_set_copies)
     set_copies_button.pack(side=tk.LEFT, padx=5)
 
-    # Frame for advanced settings (gap, margin, card size, page size)
+    # Frame settings
     frame_settings = tk.Frame(root)
     frame_settings.pack(padx=10, pady=5, fill=tk.X)
 
@@ -77,7 +112,7 @@ def build_gui():
     card_height_entry.grid(row=1, column=3, padx=5, pady=2)
     card_height_entry.bind("<KeyRelease>", event_handlers.update_layout_info)
 
-    # Frame for layout info
+    # Frame layout info
     frame_layout = tk.Frame(root)
     frame_layout.pack(padx=10, pady=5, fill=tk.X)
 
@@ -90,11 +125,10 @@ def build_gui():
     pages_label = tk.Label(frame_layout, text="Pagine: 0")
     pages_label.pack(side=tk.LEFT, padx=10)
 
-    # Button to create PDF
     create_pdf_button = tk.Button(root, text="Crea PDF", command=event_handlers.on_create_pdf)
     create_pdf_button.pack(pady=10)
 
-    # Inizializzo i riferimenti in event_handlers
+    # Initialize references
     event_handlers.init_gui_references(
         files_listbox_ref=files_listbox,
         copies_entry_ref=copies_entry,
@@ -108,8 +142,8 @@ def build_gui():
         pages_label_ref=pages_label
     )
 
-    # Call once to init labels
+    # Init layout info
     event_handlers.update_layout_info()
 
-    # Avvio loop principale
+    # Main loop
     root.mainloop()

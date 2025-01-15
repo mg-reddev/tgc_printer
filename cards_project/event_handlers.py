@@ -1,24 +1,20 @@
 # event_handlers.py
 
-# English comment: Event handlers for the GUI
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import math
+import re, shlex
 
-# English comment: We need the function for PDF creation
 from pdf_utils import create_pdf
-
-# English comment: Global dictionaries or references
 from reportlab.lib.pagesizes import A4, A3
 
-# Dictionaries (o variabili) usate globalmente
+# Dizionari e riferimenti globali
 selections_dict = {}
 pagesizes_dict = {
     "A4": A4,
     "A3": A3
 }
 
-# Riferimenti ai widget (inizialmente None, verranno passati da gui.py)
 files_listbox = None
 copies_entry = None
 gap_entry = None
@@ -42,11 +38,6 @@ def init_gui_references(
     rows_label_ref,
     pages_label_ref
 ):
-    """
-    English comment:
-    This function is called by gui.py to set the references
-    to the actual Tkinter widgets, so we can use them here.
-    """
     global files_listbox, copies_entry, gap_entry, margin_entry
     global card_width_entry, card_height_entry, page_size_combo
     global columns_label, rows_label, pages_label
@@ -63,10 +54,6 @@ def init_gui_references(
     pages_label = pages_label_ref
 
 def on_select_cards():
-    """
-    Let the user select one or more files from the file explorer,
-    and add them to the listbox and the selections_dict (with default 1 copy).
-    """
     file_paths = filedialog.askopenfilenames(
         title="Seleziona uno o più file immagine",
         filetypes=[
@@ -80,14 +67,39 @@ def on_select_cards():
             files_listbox.insert(tk.END, path)
     update_layout_info()
 
+def on_drop_files(event):
+    """
+    English comment:
+    Handle the drag & drop event using a more robust parsing for paths
+    that might contain spaces or curly braces.
+    """
+    raw = event.data.strip()
+
+    # Cerca percorsi racchiusi tra {} (frequente su Windows o alcuni gestori di drag&drop)
+    found = re.findall(r'\{(.*?)\}', raw)
+    if found:
+        paths = [f.strip() for f in found]
+    else:
+        # Usa shlex.split() se non ci sono graffe
+        try:
+            paths = shlex.split(raw)
+        except ValueError:
+            paths = raw.split()
+
+    for path in paths:
+        path = path.strip()
+        if path and path not in selections_dict:
+            selections_dict[path] = 1
+            files_listbox.insert(tk.END, path)
+
+    update_layout_info()
+
 def on_listbox_select(event):
-    """
-    When the user selects an item in the listbox, show its current 'copies' value.
-    """
     selection = files_listbox.curselection()
     if not selection:
         return
 
+    # Mostriamo le copie solo del primo elemento selezionato
     index = selection[0]
     path = files_listbox.get(index)
     copies = selections_dict.get(path, 1)
@@ -95,17 +107,11 @@ def on_listbox_select(event):
     copies_entry.insert(0, str(copies))
 
 def on_set_copies():
-    """
-    Update the copies count for the selected item in the listbox.
-    """
     selection = files_listbox.curselection()
     if not selection:
-        messagebox.showerror("Errore", "Seleziona un file dalla lista per impostare le copie.")
+        messagebox.showerror("Errore", "Seleziona uno o più file dalla lista per impostare le copie.")
         return
     
-    index = selection[0]
-    path = files_listbox.get(index)
-
     copies_str = copies_entry.get()
     try:
         copies = int(copies_str)
@@ -115,30 +121,29 @@ def on_set_copies():
         messagebox.showerror("Errore", "Inserisci un numero intero maggiore di zero.")
         return
     
-    selections_dict[path] = copies
-    messagebox.showinfo("Copie aggiornate", f"Impostato {copies} copie per:\n{path}")
+    # Impostiamo le copie per ogni elemento selezionato
+    for index in selection:
+        path = files_listbox.get(index)
+        selections_dict[path] = copies
+
+    messagebox.showinfo("Copie aggiornate", f"Impostato {copies} copie per gli elementi selezionati.")
     update_layout_info()
 
 def on_remove_file():
-    """
-    Remove the selected file from both the listbox and selections_dict.
-    """
     selection = files_listbox.curselection()
     if not selection:
-        messagebox.showerror("Errore", "Seleziona un file dalla lista per rimuoverlo.")
+        messagebox.showerror("Errore", "Seleziona uno o più file dalla lista per rimuoverli.")
         return
 
-    index = selection[0]
-    path = files_listbox.get(index)
-    del selections_dict[path]
-    files_listbox.delete(index)
-    messagebox.showinfo("Info", f"Rimosso:\n{path}")
+    for index in reversed(selection):
+        path = files_listbox.get(index)
+        del selections_dict[path]
+        files_listbox.delete(index)
+
+    messagebox.showinfo("Info", "File selezionati rimossi.")
     update_layout_info()
 
 def on_create_pdf():
-    """
-    Gather parameters and call create_pdf.
-    """
     try:
         gap_mm = float(gap_entry.get())
         margin_mm = float(margin_entry.get())
@@ -178,12 +183,6 @@ def on_create_pdf():
     )
 
 def update_layout_info(event=None):
-    """
-    Calcola quante colonne, quante righe (teoricamente) e quante pagine totali
-    in base ai parametri e ai file selezionati.
-    Aggiorna le etichette: columns_label, rows_label, pages_label.
-    """
-    import math
     from reportlab.lib.units import cm, mm
 
     try:
@@ -204,10 +203,8 @@ def update_layout_info(event=None):
         pages_label.config(text="Pagine: ?")
         return
     page_size = pagesizes_dict[chosen_page]
-
     page_width, page_height = page_size
 
-    # Convert to points
     card_width_pts = card_width_cm * cm
     card_height_pts = card_height_cm * cm
     gap_pts = gap_mm * mm

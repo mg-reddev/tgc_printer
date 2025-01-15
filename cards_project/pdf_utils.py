@@ -1,6 +1,5 @@
 # pdf_utils.py
 
-# English comment: Here we keep the function for PDF creation
 import os
 from tkinter import messagebox
 from reportlab.pdfgen import canvas
@@ -23,11 +22,9 @@ def create_pdf(
     and a margin (in mm). 'selections_dict' is a dictionary { image_path: copies }.
     """
 
-    # Convert the chosen card size from centimeters to points
     card_width_pts = card_width_cm * cm
     card_height_pts = card_height_cm * cm
 
-    # Convert gap and margin from mm to points
     gap_pts = gap_mm * mm
     margin_pts = margin_mm * mm
 
@@ -35,18 +32,14 @@ def create_pdf(
     c = canvas.Canvas(pdf_path, pagesize=page_size)
     page_width, page_height = page_size
 
-    # Effective size for each card block (card + gap)
     effective_card_width = card_width_pts + gap_pts
     effective_card_height = card_height_pts + gap_pts
 
-    # Starting coordinates (top-left corner)
     current_x = margin_pts
     current_y = page_height - margin_pts - card_height_pts
 
-    # TOLERANCE to avoid minor float issues
     TOLERANCE = 2
 
-    # Loop through each image in the dictionary
     for image_path, copies in selections_dict.items():
         if not os.path.isfile(image_path):
             print(f"File non trovato: {image_path}")
