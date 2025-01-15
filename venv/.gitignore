@@ -1,0 +1,19 @@
+# Ignora build di PyInstaller
+build/
+*.spec
+
+# Ignora virtual environment
+venv/
+
+# Ignora file temporanei Python
+__pycache__/
+*.py[cod]
+
+# Ignora file di log e temporanei
+*.log
+*.tmp
+*.swp
+
+# Ignora file di sistema
+.DS_Store
+Thumbs.db
